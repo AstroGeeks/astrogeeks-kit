@@ -19,6 +19,7 @@ class PeripheralManager(object):
     def __init__(self):
         self.peripherals = []
         self.subscribers = []
+        self.busy = 0
 
     def runnable_peripherals(self):
         """
@@ -59,6 +60,16 @@ class PeripheralManager(object):
         for (predicate, callback) in self.subscribers:
             if predicate(measurement):
                 callback(measurement)
+            asyncio.ensure_future(self._log_measurement(measurement))  
+
+    async def _log_measurement(self, measurement):
+        if (self.busy):
+            return
+        
+        self.busy = 1
+        logger.info(measurement.physical_quantity + ": " +  str(round(measurement.value, 2)) + " " + measurement.physical_unit)
+        await asyncio.sleep(15)
+        self.busy = 0
 
     def create_peripheral(self, peripheral_class, peripheral_object_name, peripheral_parameters):
         """
