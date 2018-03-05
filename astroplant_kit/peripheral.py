@@ -162,16 +162,9 @@ class Sensor(Peripheral):
             if isinstance(measurement, collections.Iterable):
                 # Add all measurements to the sensor's measurement list (for later reduction)
                 self.measurements.extend(measurement)
-
-                # Publish each measurement
-                for m in measurement:
-                    asyncio.ensure_future(self._publish_measurement(m))
             else:
                 # Add measurement to the sensor's measurement list (for later reduction)
                 self.measurements.append(measurement)
-
-                # Publish the measurement
-                asyncio.ensure_future(self._publish_measurement(measurement))
             await asyncio.sleep(self.TIME_SLEEP_BETWEEN_MEASUREMENTS)
 
     async def _reduce_measurements(self):
