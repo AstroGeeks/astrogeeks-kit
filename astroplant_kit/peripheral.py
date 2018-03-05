@@ -60,16 +60,6 @@ class PeripheralManager(object):
         for (predicate, callback) in self.subscribers:
             if predicate(measurement):
                 callback(measurement)
-            asyncio.ensure_future(self._log_measurement(measurement))  
-
-    async def _log_measurement(self, measurement):
-        if (self.busy):
-            return
-        
-        self.busy = 1
-        logger.info(measurement.physical_quantity + ": " +  str(round(measurement.value, 2)) + " " + measurement.physical_unit)
-        await asyncio.sleep(15)
-        self.busy = 0
 
     def create_peripheral(self, peripheral_class, peripheral_object_name, peripheral_parameters):
         """
@@ -284,7 +274,7 @@ class Measurement(object):
     def __str__(self):
         return "%s - %s %s: %s %s" % (self.date_time, self.peripheral, self.physical_quantity, self.value, self.physical_unit)
 
-class Display(Peripheral):
+class Display(Actuator):
     """
     An abstract class for peripheral display devices. These devices can display strings.
 
@@ -303,11 +293,7 @@ class Display(Peripheral):
             if len(self.log_message_queue) > 0:
                 msg = self.log_message_queue.pop(0)
                 self.display(msg)
-            await self._run()
-
-    async def _run(self):
-        # Async wait for new instructions
-        await asyncio.sleep(0.5)
+            await asyncio.sleep(0.5)
 
     def add_log_message(self, msg):
         """
@@ -348,7 +334,38 @@ class DisplayDeviceStream(object):
         self.peripheral_display_device.add_log_message(self.str)
         self.str = ""
 
-class LocalDataLogger(Actuator):
+class DataLogger(Actuator):
+    """
+    A virtual peripheral device writing observations to internal storage.
+    """
+
+    RUNNABLE = TRUE
+
+    def __init__(self, *args, storage_path, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.storage_path = storage_path
+
+        self.manager.subscribe_predicate(
+            lambda m: m.measurement_type == MeasurementType.REDUCED,
+            self.log_measurement)
+
+    async def run(self):
+        while True:
+            if len(self.log_message_queue) > 0:
+                measurement = self.log_message_queue.pop(0)
+                logger.info(measurement.__dict__)
+                await asyncio.sleep(10)
+            await asyncio.sleep(0.5)
+
+    def log_measurement(self, measurement):
+        """
+        Add a log message to be displayed on the device.
+
+        :param msg: The message to be displayed.
+        """
+        self.log_message_queue.append(measurement)        
+
+class DataSerializer(Actuator):
     """
     A virtual peripheral device writing observations to internal storage.
     """
@@ -356,38 +373,37 @@ class LocalDataLogger(Actuator):
     def __init__(self, *args, storage_path, **kwargs):
         super().__init__(*args, **kwargs)
         self.storage_path = storage_path
-        
+
         # Subscribe to all REDUCED (processed) measurements.
         self.manager.subscribe_predicate(
             lambda m: m.measurement_type == MeasurementType.REDUCED,
-            self._store_measurement);
-        
+            self._store_measurement)
+
     def _store_measurement(self, measurement):
         # Import required modules.
         import csv
         import os
-    
+
         measurement_dict = measurement.__dict__
-    
+
         file_name = "%s-%s.csv" % (measurement.date_time.strftime("%Y%m%d"), measurement.physical_quantity)
         path = os.path.join(self.storage_path, file_name)
-        
+
         # Check whether the file exists.
         exists = os.path.isfile(path)
-        
+
         # Create file and directories if it does not exist yet.
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        
+
         with open(path, 'a', newline='') as csv_file:
             # Get the measurement object field names.
             # Sort them to ensure csv headers have
             # consistent field ordering.
             field_names = sorted(measurement_dict.keys())
             writer = csv.DictWriter(csv_file, fieldnames=field_names)
-            
+
             if not exists:
                 # File is new: write csv header.
                 writer.writeheader()
-                
+
             writer.writerow(measurement_dict)
-        
