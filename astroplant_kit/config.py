@@ -6,7 +6,8 @@ def read_config():
 
     :return: The json configuration as a dictionary.
     """
-    with open('astroplant_kit/kit_config.json') as f:
+    path = os.path.abspath('astroplant_kit/kit_config.json')
+    with open(path) as f:
         data = json.load(f)
 
     return data
