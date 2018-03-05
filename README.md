@@ -51,5 +51,5 @@ The `auth.serial` and `auth.secret` are obtained by registering a new kit on the
 To run the kit, perform:
 
 ```bash
-./core.py
+./core
 ```
