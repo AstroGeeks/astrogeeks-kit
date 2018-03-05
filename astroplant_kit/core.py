@@ -14,7 +14,8 @@ from astroplant_client import Client
 from astroplant_kit.kit import Kit
 from astroplant_kit import config
 
-if __name__ == "__main__":
+
+def main():
     # Logging
     ## create logger
     logger = logging.getLogger("AstroPlant")
@@ -49,3 +50,6 @@ if __name__ == "__main__":
     logger.info('Initialising kit.')
     kit = Kit(api_client, conf["debug"])
     kit.run()
+
+if __name__ == "__main__":
+    main()
